@@ -1,86 +1,93 @@
 pipeline {
     agent any
-    tools{
-        jdk 'jdk17'
+    tools {
         maven 'maven3'
+        jdk 'jdk17'
     }
-    environment{
-        SCANNER_HOME= tool 'sonar-scanner'
+
+    environment {
+        DOCKERHUB_CREDENTIALS=credentials('docker-cred')
+        KUBERNETES_CREDENTIALS=credentials('kubeconfig')
+        SCANNER_HOME=tool 'sonar-scanner'
     }
 
     stages {
-        stage('git-checkout') {
-            steps {
-                git 'https://github.com/jaiswaladi246/secretsanta-generator.git'
+        stage ('Maven Compile') {
+            steps{
+                sh "mvn clean compile"
+            }
+        }
+        stage ('Unit Test') {
+            steps{
+                sh "mvn test"
+            }
+        }
+        stage ('Owasp Check') {
+                    steps{
+                        dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DC'
+                        dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                    }
+        }
+
+        stage ('Sonar Analysis') {
+            steps{
+                sh ''' mvn sonar:sonar -Dsonar.url=http://192.168.56.110:9000/ -Dsonar.login=sqp_83dede86676b88183ac317864f1b8435577b6dec -Dsonar.projectKey=employeemanagement \
+                   -Dsonar.projectName=employeemanagement -Dsonar.java.binaries=. '''
+
+            }
+        }
+        stage ('Maven Build') {
+            steps{
+                sh "mvn clean package"
             }
         }
 
-        stage('Code-Compile') {
-            steps {
-               sh "mvn clean compile"
-            }
-        }
-        
-        stage('Unit Tests') {
-            steps {
-               sh "mvn test"
-            }
-        }
-        
-		stage('OWASP Dependency Check') {
-            steps {
-               dependencyCheck additionalArguments: ' --scan ./ ', odcInstallation: 'DC'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+
+        stage ('Docker Build') {
+            steps{
+                script {
+                    // This step should not normally be used in your script. Consult the inline help for details.
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh "docker build -t santaGenerator ."
+                    }
+                }
             }
         }
 
-
-        stage('Sonar Analysis') {
-            steps {
-               withSonarQubeEnv('sonar'){
-                   sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Santa \
-                   -Dsonar.java.binaries=. \
-                   -Dsonar.projectKey=Santa '''
-               }
+        stage ('Docker Push') {
+            steps{
+                script {
+                    // This step should not normally be used in your script. Consult the inline help for details.
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                        sh "docker tag santaGenerator frawatson/santaGenerator:latest"
+                        sh "docker push frawatson/santaGenerator:latest"
+                    }
+                }
             }
         }
-
-		 
-        stage('Code-Build') {
-            steps {
-               sh "mvn clean package"
+        stage ('Trivy Scan') {
+                    steps{
+                        script {
+                            withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
+                                sh "trivy image santaGenerator > trivy-report.txt --reset"
+                            }
+                        }
+                    }
+        }
+        stage ('Kubernetes Deploy') {
+            steps{
+                script {
+                    withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'kubeconfig', namespace: 'dev', restrictKubeConfigAccess: false, serverUrl: 'https://192.168.56.106:6443') {
+                        sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                        sh "kubectl apply -f deployment-service.yaml"
+                        sh "kubectl get svc"
+                    }
+                }
             }
         }
+    }
 
-         stage('Docker Build') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: 'docker-cred') {
-                    sh "docker build -t  santa123 . "
-                 }
-               }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: 'docker-cred') {
-                    sh "docker tag santa123 adijaiswal/santa123:latest"
-                    sh "docker push adijaiswal/santa123:latest"
-                 }
-               }
-            }
-        }
-        
-        	 
-        stage('Docker Image Scan') {
-            steps {
-               sh "trivy image adijaiswal/santa123:latest "
-            }
-        }}
-        
-         post {
+        post {
             always {
                 emailext (
                     subject: "Pipeline Status: ${BUILD_NUMBER}",
@@ -91,15 +98,13 @@ pipeline {
                                     <p>Check the <a href="${BUILD_URL}">console output</a>.</p>
                                 </body>
                             </html>''',
-                    to: 'jaiswaladi246@gmail.com',
+                    to: 'franciswatson9@gmail.com',
                     from: 'jenkins@example.com',
                     replyTo: 'jenkins@example.com',
                     mimeType: 'text/html'
                 )
             }
         }
-		
-		
 
     
 }
