@@ -31,8 +31,8 @@ pipeline {
 
         stage ('Sonar Analysis') {
             steps{
-                sh ''' mvn sonar:sonar -Dsonar.url=http://192.168.56.110:9000/ -Dsonar.login=sqp_83dede86676b88183ac317864f1b8435577b6dec -Dsonar.projectKey=secret-santa \
-                   -Dsonar.projectName=secret-santa -Dsonar.java.binaries=. '''
+                sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=secret-santa -Dsonar.projectName=secret-santa \
+                    -Dsonar.java.binaries=. '''
 
             }
         }
