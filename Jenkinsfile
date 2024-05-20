@@ -48,7 +48,7 @@ pipeline {
                 script {
                     // This step should not normally be used in your script. Consult the inline help for details.
                     withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                        sh "docker build -t santaGenerator ."
+                        sh "docker build -t santagenerator ."
                     }
                 }
             }
@@ -59,8 +59,8 @@ pipeline {
                 script {
                     // This step should not normally be used in your script. Consult the inline help for details.
                     withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                        sh "docker tag santaGenerator frawatson/santaGenerator:latest"
-                        sh "docker push frawatson/santaGenerator:latest"
+                        sh "docker tag santagenerator frawatson/santagenerator:latest"
+                        sh "docker push frawatson/santagenerator:latest"
                     }
                 }
             }
@@ -69,7 +69,7 @@ pipeline {
                     steps{
                         script {
                             withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
-                                sh "trivy image santaGenerator > trivy-report.txt --reset"
+                                sh "trivy image santagenerator > trivy-report.txt --reset"
                             }
                         }
                     }
@@ -90,7 +90,7 @@ pipeline {
         post {
             always {
                 emailext (
-                    subject: "Pipeline Status: ${BUILD_NUMBER}",
+                    subject: "Pipeline Status: ${JOB_NAME} ${BUILD_NUMBER}",
                     body: '''<html>
                                 <body>
                                     <p>Build Status: ${BUILD_STATUS}</p>
