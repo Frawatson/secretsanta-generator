@@ -82,8 +82,7 @@ pipeline {
                 script {
                     withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'kubeconfig', namespace: 'dev', restrictKubeConfigAccess: false, serverUrl: 'https://192.168.56.106:6443') {
                         sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                        sh "kubectl apply -f deployment.yml"
-                        sh "kubectl apply -f service.yml"
+                        sh "kubectl apply -f deployment-service.yaml"
                         sh "kubectl get svc"
                     }
                 }
