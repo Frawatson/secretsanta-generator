@@ -14,10 +14,17 @@ spec:
     spec:
       containers:
         - name: santa
-          image: frawatson/santagenerator # Image that will be used to containers in the cluster
+          image: frawatson/santagenerator:v1 # Image that will be used to containers in the cluster
           imagePullPolicy: Always
           ports:
             - containerPort: 8080 # The port that the container is running on in the cluster
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1024Mi"
+              cpu: "1000m"
 
 
 ---
